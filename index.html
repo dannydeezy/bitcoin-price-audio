@@ -8,6 +8,7 @@
 </head>
 <body>
 <h1 id="price"></h1>
+<button id="button" onclick="fetchAndSpeakBitcoinPrice()">Start</button>
 
 <script>
 
@@ -44,6 +45,7 @@
 
     openSocket()
     async function fetchAndSpeakBitcoinPrice() {
+        document.getElementById('button').style.display = 'none'
         async function sayAndWait(sentence) {
             console.log(sentence);
             let audio = new SpeechSynthesisUtterance(sentence);
@@ -68,10 +70,6 @@
             await delay(3000)
         }
     }
-    window.speechSynthesis.onvoiceschanged = function(e) {
-        console.log(e)
-        fetchAndSpeakBitcoinPrice()
-    };
 
 </script>
 </body>
