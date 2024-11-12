@@ -1,0 +1,78 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Price Speaker</title>
+</head>
+<body>
+<h1 id="price"></h1>
+
+<script>
+
+    let latestPrice = ''
+    let ws
+    function openSocket() {
+        ws = new WebSocket('wss://ws-feed.exchange.coinbase.com');
+        console.log(ws)
+        ws.onopen = (event) => {
+            console.log('Connected to Coinbase WebSocket');
+            const subscribeMessage = JSON.stringify({
+                type: "subscribe",
+                product_ids: ["BTC-USD"],
+                channels: ["level2", "heartbeat", {name: "ticker", product_ids: ["BTC-USD"]}]
+            });
+            ws.send(subscribeMessage);
+        }
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data)
+            const myPrice = parseFloat(data.price).toFixed(0)
+            if (!isNaN(myPrice)) {
+                latestPrice = myPrice
+            }
+        };
+
+        ws.onclose = (event) => {
+            console.log(event)
+            console.log("WebSocket connection closed. Reconnecting...");
+            setTimeout(() => {
+                openSocket()
+            }, 1000);
+        };
+    }
+
+    openSocket()
+    async function fetchAndSpeakBitcoinPrice() {
+        async function sayAndWait(sentence) {
+            console.log(sentence);
+            let audio = new SpeechSynthesisUtterance(sentence);
+            audio.lang = "en-US";
+            window.speechSynthesis.cancel()
+            window.speechSynthesis.speak(audio);
+            console.log(`spoken`)
+            console.log(audio)
+        }
+
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+        while(true) {
+            try {
+                const price = latestPrice
+                if (price) {
+                    document.getElementById("price").textContent = `$${price}`;
+                }
+                await sayAndWait(`${price}`)
+            } catch (error) {
+                console.error("Error fetching or speaking the Bitcoin price:", error);
+            }
+            await delay(3000)
+        }
+    }
+    window.speechSynthesis.onvoiceschanged = function(e) {
+        console.log(e)
+        fetchAndSpeakBitcoinPrice()
+    };
+
+</script>
+</body>
+</html>
