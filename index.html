@@ -31,6 +31,7 @@
             const myPrice = parseFloat(data.price).toFixed(0)
             if (!isNaN(myPrice)) {
                 latestPrice = myPrice
+                document.getElementById("price").textContent = `$${myPrice}`;
             }
         };
 
@@ -59,11 +60,7 @@
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
         while(true) {
             try {
-                const price = latestPrice
-                if (price) {
-                    document.getElementById("price").textContent = `$${price}`;
-                }
-                await sayAndWait(`${price}`)
+                await sayAndWait(`${latestPrice}`)
             } catch (error) {
                 console.error("Error fetching or speaking the Bitcoin price:", error);
             }
