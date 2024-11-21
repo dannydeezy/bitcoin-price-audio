@@ -44,13 +44,19 @@
         };
     }
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const rateStr = urlParams.get('rate')
+    const speakingRate = rateStr ? parseFloat(rateStr) : 1;
     openSocket()
     async function fetchAndSpeakBitcoinPrice() {
         document.getElementById('button').style.display = 'none'
+
         async function sayAndWait(sentence) {
             console.log(sentence);
             let audio = new SpeechSynthesisUtterance(sentence);
             audio.lang = "en-US";
+            audio.rate = speakingRate
+            console.log(audio.rate)
             window.speechSynthesis.cancel()
             window.speechSynthesis.speak(audio);
             console.log(`spoken`)
@@ -64,7 +70,7 @@
             } catch (error) {
                 console.error("Error fetching or speaking the Bitcoin price:", error);
             }
-            await delay(3000)
+            await delay(3000 / speakingRate)
         }
     }
 
