@@ -44,6 +44,27 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
             line-height: 1;
             word-break: break-all;
+            transition: color 0.5s ease;
+        }
+        
+        .price-up {
+            animation: flashGreen 2s ease;
+        }
+        
+        .price-down {
+            animation: flashRed 2s ease;
+        }
+        
+        @keyframes flashGreen {
+            0% { color: var(--text-color); }
+            50% { color: #28a745; }
+            100% { color: var(--text-color); }
+        }
+        
+        @keyframes flashRed {
+            0% { color: var(--text-color); }
+            50% { color: #dc3545; }
+            100% { color: var(--text-color); }
         }
         
         .button-container {
@@ -239,6 +260,18 @@
             </label>
             <small>Show and say prices in millions (e.g., $0.123 M instead of $123,000)</small>
         </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="playPriceBings"> Price Bings
+            </label>
+            <small>Play sounds when price goes up (bing) or down (bong)</small>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="sayNumbers"> Say Numbers
+            </label>
+            <small>Voice speaks the price numbers</small>
+        </div>
         <button class="save-btn" onclick="saveSettings()">Save Settings</button>
         <button class="restore-btn" onclick="restoreDefaults()">Restore Defaults</button>
     </div>
@@ -253,13 +286,18 @@
     let isAudioEnabled = false
     let currentAudioController = null
     let useMillions = false
+    let playPriceBings = false
+    let sayNumbers = true
+    let previousPrice = null
     let ws
     
     function saveSettingsToStorage() {
         const settings = {
             priceChangeThreshold: priceChangeThreshold,
             pauseBetweenSpeakings: pauseBetweenSpeakings,
-            useMillions: useMillions
+            useMillions: useMillions,
+            playPriceBings: playPriceBings,
+            sayNumbers: sayNumbers
         };
         localStorage.setItem('bitcoinPriceSettings', JSON.stringify(settings));
     }
@@ -272,9 +310,61 @@
                 priceChangeThreshold = settings.priceChangeThreshold || 0;
                 pauseBetweenSpeakings = settings.pauseBetweenSpeakings || 200;
                 useMillions = settings.useMillions || false;
+                playPriceBings = settings.playPriceBings || false;
+                sayNumbers = settings.sayNumbers || false;
                 console.log('Settings loaded from localStorage:', settings);
             } catch (error) {
                 console.error('Error loading settings from localStorage:', error);
+            }
+        }
+    }
+    
+    function playPositiveSound() {
+        if (playPriceBings) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.2);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (e) {
+                console.log('Sound effect failed to play:', e);
+            }
+        }
+    }
+    
+    function playNegativeSound() {
+        if (playPriceBings) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(300, audioContext.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.2);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (e) {
+                console.log('Sound effect failed to play:', e);
             }
         }
     }
@@ -284,6 +374,8 @@
         document.getElementById('priceThreshold').value = priceChangeThreshold;
         document.getElementById('pauseBetweenSpeakings').value = pauseBetweenSpeakings;
         document.getElementById('useMillions').checked = useMillions;
+        document.getElementById('playPriceBings').checked = playPriceBings;
+        document.getElementById('sayNumbers').checked = sayNumbers;
     }
     
     function closeSettings() {
@@ -294,13 +386,17 @@
         const newThreshold = parseInt(document.getElementById('priceThreshold').value);
         const newInterval = parseInt(document.getElementById('pauseBetweenSpeakings').value);
         const newUseMillions = document.getElementById('useMillions').checked;
+        const newPlayPriceBings = document.getElementById('playPriceBings').checked;
+        const newSayNumbers = document.getElementById('sayNumbers').checked;
         
         if (newThreshold >= 0 && !isNaN(newInterval)) {
             priceChangeThreshold = newThreshold;
             pauseBetweenSpeakings = newInterval;
             useMillions = newUseMillions;
+            playPriceBings = newPlayPriceBings;
+            sayNumbers = newSayNumbers;
             closeSettings();
-            console.log(`Settings updated - Threshold: $${priceChangeThreshold}, Pause: ${pauseBetweenSpeakings}ms, Millions: ${useMillions}`);
+            console.log(`Settings updated - Threshold: $${priceChangeThreshold}, Pause: ${pauseBetweenSpeakings}ms, Millions: ${useMillions}, Price Bings: ${playPriceBings}, Say Numbers: ${sayNumbers}`);
             saveSettingsToStorage(); // Save settings to localStorage
         } else {
             alert('Please enter valid numbers (threshold >= 0, interval must be a number)');
@@ -311,9 +407,13 @@
         priceChangeThreshold = 0;
         pauseBetweenSpeakings = 200;
         useMillions = false;
+        playPriceBings = false;
+        sayNumbers = true;
         document.getElementById('priceThreshold').value = priceChangeThreshold;
         document.getElementById('pauseBetweenSpeakings').value = pauseBetweenSpeakings;
         document.getElementById('useMillions').checked = useMillions;
+        document.getElementById('playPriceBings').checked = playPriceBings;
+        document.getElementById('sayNumbers').checked = sayNumbers;
         closeSettings();
         console.log('Settings restored to defaults');
         saveSettingsToStorage(); // Save defaults to localStorage
@@ -343,8 +443,35 @@
             const data = JSON.parse(event.data)
             const myPrice = parseFloat(data.price).toFixed(0)
             if (!isNaN(myPrice)) {
-                latestPrice = myPrice
-                document.getElementById("price").textContent = `$${formatPrice(myPrice)}`;
+                const priceElement = document.getElementById("price");
+                
+                // Check for price change and trigger animation
+                if (previousPrice !== null) {
+                    const currentPrice = parseFloat(myPrice);
+                    const prevPrice = parseFloat(previousPrice);
+                    
+                    if (currentPrice > prevPrice) {
+                        // Price went up - flash green
+                        priceElement.classList.remove('price-down');
+                        priceElement.classList.add('price-up');
+                        setTimeout(() => {
+                            priceElement.classList.remove('price-up');
+                        }, 2000);
+                        playPositiveSound();
+                    } else if (currentPrice < prevPrice) {
+                        // Price went down - flash red
+                        priceElement.classList.remove('price-up');
+                        priceElement.classList.add('price-down');
+                        setTimeout(() => {
+                            priceElement.classList.remove('price-down');
+                        }, 2000);
+                        playNegativeSound();
+                    }
+                }
+                
+                latestPrice = myPrice;
+                previousPrice = myPrice;
+                priceElement.textContent = `$${formatPrice(myPrice)}`;
             }
         };
 
@@ -421,7 +548,9 @@
                     // If threshold is 0, always speak
                     if (lastSpokenPrice === null || priceChangeThreshold === 0 || Math.abs(currentPrice - lastSpokenPrice) >= priceChangeThreshold) {
                         lastSpokenPrice = currentPrice
-                        await sayAndWait(formatPriceForSpeech(currentPrice))
+                        if (sayNumbers) {
+                            await sayAndWait(formatPriceForSpeech(currentPrice))
+                        }
                     }
                 }
             } catch (error) {
