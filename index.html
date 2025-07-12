@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitcoin Price Speaker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
     <style>
         :root {
             --bg-color: #2a2a2a;
@@ -548,7 +549,11 @@
                 
                 latestPrice = myPrice;
                 previousPrice = myPrice;
-                priceElement.textContent = `$${formatPrice(myPrice)}`;
+                const formattedPrice = formatPrice(myPrice);
+                priceElement.textContent = `$${formattedPrice}`;
+                
+                // Update browser tab title
+                document.title = `$${formattedPrice} - Bitcoin Price Speaker`;
             }
         };
 
