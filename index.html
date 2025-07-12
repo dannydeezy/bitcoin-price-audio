@@ -154,6 +154,16 @@
             background-color: #218838;
         }
         
+        .restore-btn {
+            background-color: #6c757d;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .restore-btn:hover {
+            background-color: #545b62;
+        }
+        
         small {
             color: var(--small-text);
             font-size: 12px;
@@ -207,10 +217,6 @@
     <button id="disableBtn" onclick="disableAudio()" style="display: none;">Disable Audio</button>
     <button id="settingsBtn" onclick="openSettings()">Settings</button>
 </div>
-<div id="lastSpokenInfo" style="display: none;">
-    Last spoken price: $<span id="lastSpokenPrice"></span><br>
-    Price change threshold: $<span id="currentThreshold"></span>
-</div>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
@@ -234,6 +240,7 @@
             <small>Show and say prices in millions (e.g., $0.123 M instead of $123,000)</small>
         </div>
         <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+        <button class="restore-btn" onclick="restoreDefaults()">Restore Defaults</button>
     </div>
 </div>
 
@@ -294,21 +301,24 @@
             useMillions = newUseMillions;
             closeSettings();
             console.log(`Settings updated - Threshold: $${priceChangeThreshold}, Pause: ${pauseBetweenSpeakings}ms, Millions: ${useMillions}`);
-            
-            // Show/hide last spoken info based on threshold
-            const lastSpokenInfo = document.getElementById('lastSpokenInfo');
-            if (priceChangeThreshold > 0) {
-                lastSpokenInfo.style.display = 'block';
-                document.getElementById('currentThreshold').textContent = formatPrice(priceChangeThreshold);
-            } else {
-                lastSpokenInfo.style.display = 'none';
-            }
             saveSettingsToStorage(); // Save settings to localStorage
         } else {
             alert('Please enter valid numbers (threshold >= 0, interval must be a number)');
         }
     }
     
+    function restoreDefaults() {
+        priceChangeThreshold = 0;
+        pauseBetweenSpeakings = 200;
+        useMillions = false;
+        document.getElementById('priceThreshold').value = priceChangeThreshold;
+        document.getElementById('pauseBetweenSpeakings').value = pauseBetweenSpeakings;
+        document.getElementById('useMillions').checked = useMillions;
+        closeSettings();
+        console.log('Settings restored to defaults');
+        saveSettingsToStorage(); // Save defaults to localStorage
+    }
+
     // Close modal when clicking outside of it
     window.onclick = function(event) {
         const modal = document.getElementById('settingsModal');
@@ -410,13 +420,8 @@
                     // Check if this is the first time speaking or if price has changed by at least the threshold
                     // If threshold is 0, always speak
                     if (lastSpokenPrice === null || priceChangeThreshold === 0 || Math.abs(currentPrice - lastSpokenPrice) >= priceChangeThreshold) {
-                        
-                        lastSpokenPrice = currentPrice                        // Update the last spoken price display
-                        if (priceChangeThreshold > 0) {
-                            document.getElementById('lastSpokenPrice').textContent = formatPrice(currentPrice);
-                        }
+                        lastSpokenPrice = currentPrice
                         await sayAndWait(formatPriceForSpeech(currentPrice))
-
                     }
                 }
             } catch (error) {
