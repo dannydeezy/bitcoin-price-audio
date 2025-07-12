@@ -234,8 +234,8 @@
 <body>
 <h1 id="price"></h1>
 <div class="button-container">
-    <button id="enableBtn" onclick="enableAudio()">Enable Audio</button>
-    <button id="disableBtn" onclick="disableAudio()" style="display: none;">Disable Audio</button>
+    <button id="enableBtn" onclick="enableAudio()">Play Speaker</button>
+    <button id="disableBtn" onclick="disableAudio()" style="display: none;">Disable Speaker</button>
     <button id="settingsBtn" onclick="openSettings()">Settings</button>
 </div>
 
@@ -245,20 +245,15 @@
         <span class="close" onclick="closeSettings()">&times;</span>
         <h2>Settings</h2>
         <div class="form-group">
+            <label>
+                <input type="checkbox" id="sayNumbers"> Say Numbers
+            </label>
+            <small>Voice speaks the price numbers</small>
+        </div>
+        <div class="form-group">
             <label for="priceThreshold">Price Change Threshold ($):</label>
             <input type="number" id="priceThreshold" min="0" step="1" value="0">
             <small>Only speak when price changes by this amount or more</small>
-        </div>
-        <div class="form-group">
-            <label for="pauseBetweenSpeakings">Pause Between Speakings (ms):</label>
-            <input type="number" id="pauseBetweenSpeakings" min="0" step="1" value="200">
-            <small>How long to wait between each speech utterance</small>
-        </div>
-        <div class="form-group">
-            <label>
-                <input type="checkbox" id="useMillions"> Millions Mode
-            </label>
-            <small>Show and say prices in millions (e.g., $0.123 M instead of $123,000)</small>
         </div>
         <div class="form-group">
             <label>
@@ -268,9 +263,9 @@
         </div>
         <div class="form-group">
             <label>
-                <input type="checkbox" id="sayNumbers"> Say Numbers
+                <input type="checkbox" id="useMillions"> Millions Mode
             </label>
-            <small>Voice speaks the price numbers</small>
+            <small>Show and say prices in millions</small>
         </div>
         <button class="save-btn" onclick="saveSettings()">Save Settings</button>
         <button class="restore-btn" onclick="restoreDefaults()">Restore Defaults</button>
@@ -287,14 +282,13 @@
     let currentAudioController = null
     let useMillions = false
     let playPriceBings = false
-    let sayNumbers = true
+    let sayNumbers = false
     let previousPrice = null
     let ws
     
     function saveSettingsToStorage() {
         const settings = {
             priceChangeThreshold: priceChangeThreshold,
-            pauseBetweenSpeakings: pauseBetweenSpeakings,
             useMillions: useMillions,
             playPriceBings: playPriceBings,
             sayNumbers: sayNumbers
@@ -308,11 +302,18 @@
             try {
                 const settings = JSON.parse(savedSettings);
                 priceChangeThreshold = settings.priceChangeThreshold || 0;
-                pauseBetweenSpeakings = settings.pauseBetweenSpeakings || 200;
                 useMillions = settings.useMillions || false;
                 playPriceBings = settings.playPriceBings || false;
                 sayNumbers = settings.sayNumbers || false;
                 console.log('Settings loaded from localStorage:', settings);
+                
+                // Always start with audio disabled on page load (browser autoplay policy)
+                // User must manually enable audio through button interaction
+                isAudioEnabled = false;
+                sayNumbers = false;
+                document.getElementById('enableBtn').style.display = 'inline-block';
+                document.getElementById('disableBtn').style.display = 'none';
+                document.getElementById('sayNumbers').checked = false;
             } catch (error) {
                 console.error('Error loading settings from localStorage:', error);
             }
@@ -372,7 +373,6 @@
     function openSettings() {
         document.getElementById('settingsModal').style.display = 'block';
         document.getElementById('priceThreshold').value = priceChangeThreshold;
-        document.getElementById('pauseBetweenSpeakings').value = pauseBetweenSpeakings;
         document.getElementById('useMillions').checked = useMillions;
         document.getElementById('playPriceBings').checked = playPriceBings;
         document.getElementById('sayNumbers').checked = sayNumbers;
@@ -384,36 +384,61 @@
     
     function saveSettings() {
         const newThreshold = parseInt(document.getElementById('priceThreshold').value);
-        const newInterval = parseInt(document.getElementById('pauseBetweenSpeakings').value);
         const newUseMillions = document.getElementById('useMillions').checked;
         const newPlayPriceBings = document.getElementById('playPriceBings').checked;
         const newSayNumbers = document.getElementById('sayNumbers').checked;
         
-        if (newThreshold >= 0 && !isNaN(newInterval)) {
+        if (newThreshold >= 0) {
             priceChangeThreshold = newThreshold;
-            pauseBetweenSpeakings = newInterval;
             useMillions = newUseMillions;
             playPriceBings = newPlayPriceBings;
             sayNumbers = newSayNumbers;
+            
+            // Sync button state with sayNumbers setting
+            if (sayNumbers) {
+                isAudioEnabled = true;
+                document.getElementById('enableBtn').style.display = 'none';
+                document.getElementById('disableBtn').style.display = 'inline-block';
+                // Start audio loop if it's not already running
+                if (!currentAudioController) {
+                    currentAudioController = new AbortController();
+                    runAudioLoop(currentAudioController);
+                }
+            } else {
+                isAudioEnabled = false;
+                document.getElementById('enableBtn').style.display = 'inline-block';
+                document.getElementById('disableBtn').style.display = 'none';
+                // Cancel any running audio
+                if (currentAudioController) {
+                    currentAudioController.abort();
+                    currentAudioController = null;
+                }
+                window.speechSynthesis.cancel();
+            }
+            
             closeSettings();
-            console.log(`Settings updated - Threshold: $${priceChangeThreshold}, Pause: ${pauseBetweenSpeakings}ms, Millions: ${useMillions}, Price Bings: ${playPriceBings}, Say Numbers: ${sayNumbers}`);
+            console.log(`Settings updated - Threshold: $${priceChangeThreshold}, Millions: ${useMillions}, Price Bings: ${playPriceBings}, Say Numbers: ${sayNumbers}`);
             saveSettingsToStorage(); // Save settings to localStorage
         } else {
-            alert('Please enter valid numbers (threshold >= 0, interval must be a number)');
+            alert('Please enter a valid number (threshold >= 0)');
         }
     }
     
     function restoreDefaults() {
         priceChangeThreshold = 0;
-        pauseBetweenSpeakings = 200;
         useMillions = false;
         playPriceBings = false;
-        sayNumbers = true;
+        sayNumbers = false;
         document.getElementById('priceThreshold').value = priceChangeThreshold;
-        document.getElementById('pauseBetweenSpeakings').value = pauseBetweenSpeakings;
         document.getElementById('useMillions').checked = useMillions;
         document.getElementById('playPriceBings').checked = playPriceBings;
         document.getElementById('sayNumbers').checked = sayNumbers;
+        
+        // Update button state
+        isAudioEnabled = false;
+        document.getElementById('enableBtn').style.display = 'inline-block';
+        document.getElementById('disableBtn').style.display = 'none';
+        
         closeSettings();
         console.log('Settings restored to defaults');
         saveSettingsToStorage(); // Save defaults to localStorage
@@ -490,6 +515,8 @@
     openSocket()
     loadSettingsFromStorage(); // Load settings on page load
     
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+    
     async function sayAndWait(sentence) {
         console.log(sentence);
         return new Promise((resolve) => {
@@ -512,8 +539,6 @@
             window.speechSynthesis.speak(audio);
         });
     }
-
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
     
     function formatPrice(price) {
         if (useMillions) {
@@ -574,15 +599,19 @@
         }
         
         isAudioEnabled = true;
+        sayNumbers = true;
         currentAudioController = new AbortController();
         document.getElementById('enableBtn').style.display = 'none';
         document.getElementById('disableBtn').style.display = 'inline-block';
+        document.getElementById('sayNumbers').checked = true;
         runAudioLoop(currentAudioController);
         console.log('Audio enabled');
+        saveSettingsToStorage(); // Save the updated sayNumbers setting
     }
     
     function disableAudio() {
         isAudioEnabled = false;
+        sayNumbers = false;
         lastSpokenPrice = null;
         if (currentAudioController) {
             currentAudioController.abort();
@@ -590,8 +619,10 @@
         }
         document.getElementById('enableBtn').style.display = 'inline-block';
         document.getElementById('disableBtn').style.display = 'none';
+        document.getElementById('sayNumbers').checked = false;
         window.speechSynthesis.cancel();
         console.log('Audio disabled');
+        saveSettingsToStorage(); // Save the updated sayNumbers setting
     }
 
 </script>
