@@ -63,6 +63,12 @@
             transition: color 0.5s ease;
         }
         
+        .loading {
+            opacity: 0.7;
+        }
+        
+
+        
         .price-up {
             animation: flashGreen 2s ease;
         }
@@ -248,7 +254,7 @@
     </style>
 </head>
 <body>
-<h1 id="price"></h1>
+        <h1 id="price" class="loading">🚀</h1>
 <div class="button-container">
     <button id="enableBtn" onclick="enableAudio()">Play Speaker</button>
     <button id="disableBtn" onclick="disableAudio()" style="display: none;">Disable Speaker</button>
@@ -538,37 +544,42 @@
             if (!isNaN(myPrice)) {
                 const priceElement = document.getElementById("price");
                 
-                // Check for price change and trigger animation
-                if (previousPrice !== null) {
-                    const currentPrice = parseFloat(myPrice);
-                    const prevPrice = parseFloat(previousPrice);
-                    
-                    if (currentPrice > prevPrice) {
-                        // Price went up - flash green
-                        priceElement.classList.remove('price-down');
-                        priceElement.classList.add('price-up');
-                        setTimeout(() => {
-                            priceElement.classList.remove('price-up');
-                        }, 2000);
-                        playPositiveSound(currentPrice - prevPrice);
-                    } else if (currentPrice < prevPrice) {
-                        // Price went down - flash red
-                        priceElement.classList.remove('price-up');
-                        priceElement.classList.add('price-down');
-                        setTimeout(() => {
-                            priceElement.classList.remove('price-down');
-                        }, 2000);
-                        playNegativeSound(prevPrice - currentPrice);
-                    }
-                }
-                
+                // Store the price but don't show it if loading animation is still running
                 latestPrice = myPrice;
-                previousPrice = myPrice;
-                const formattedPrice = formatPrice(myPrice);
-                priceElement.textContent = `$${formattedPrice}`;
                 
-                // Update browser tab title
-                document.title = `$${formattedPrice} - Bitcoin Price Speaker`;
+                // Only update display if loading animation is complete
+                if (!priceElement.classList.contains('loading')) {
+                    // Check for price change and trigger animation
+                    if (previousPrice !== null) {
+                        const currentPrice = parseFloat(myPrice);
+                        const prevPrice = parseFloat(previousPrice);
+                        
+                        if (currentPrice > prevPrice) {
+                            // Price went up - flash green
+                            priceElement.classList.remove('price-down');
+                            priceElement.classList.add('price-up');
+                            setTimeout(() => {
+                                priceElement.classList.remove('price-up');
+                            }, 2000);
+                            playPositiveSound(currentPrice - prevPrice);
+                        } else if (currentPrice < prevPrice) {
+                            // Price went down - flash red
+                            priceElement.classList.remove('price-up');
+                            priceElement.classList.add('price-down');
+                            setTimeout(() => {
+                                priceElement.classList.remove('price-down');
+                            }, 2000);
+                            playNegativeSound(prevPrice - currentPrice);
+                        }
+                    }
+                    
+                    previousPrice = myPrice;
+                    const formattedPrice = formatPrice(myPrice);
+                    priceElement.textContent = `$${formattedPrice}`;
+                    
+                    // Update browser tab title
+                    document.title = `$${formattedPrice} - Bitcoin Price Speaker`;
+                }
             }
         };
 
@@ -587,7 +598,43 @@
     openSocket()
     loadSettingsFromStorage(); // Load settings on page load
     
+    // Start loading animation
+    startLoadingAnimation();
+    
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+    
+    function startLoadingAnimation() {
+        const priceElement = document.getElementById("price");
+        let loadingStep = 0;
+        let priceReady = false;
+        
+        const loadingInterval = setInterval(() => {
+            // Check if price is ready
+            if (latestPrice && !isNaN(parseFloat(latestPrice)) && !priceReady) {
+                priceReady = true;
+            }
+            
+            if (loadingStep < 2) {
+                // Progress through rocket → rocket + moon (always complete this)
+                priceElement.textContent = loadingStep === 0 ? "🚀" : "🚀🌙";
+                loadingStep++;
+            } else if (priceReady && loadingStep >= 2) {
+                // Price is ready and progression is complete, show price
+                clearInterval(loadingInterval);
+                priceElement.classList.remove('loading');
+                const formattedPrice = formatPrice(latestPrice);
+                priceElement.textContent = `$${formattedPrice}`;
+                document.title = `$${formattedPrice} - Bitcoin Price Speaker`;
+                return;
+            } else {
+                // Add periods (up to 5) while waiting for progression to complete
+                const periodCount = (loadingStep - 2) % 6;
+                const periods = ".".repeat(periodCount);
+                priceElement.textContent = `🚀🌙${periods}`;
+                loadingStep++;
+            }
+        }, 100); // Update every 100ms
+    }
     
     async function sayAndWait(sentence) {
         console.log(sentence);
