@@ -320,7 +320,7 @@
         }
     }
     
-    function playPositiveSound() {
+    function playPositiveSound(priceChange) {
         if (playPriceBings) {
             try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -330,22 +330,34 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-                oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.2);
+                // Calculate pitch and duration based on price change size
+                const baseFreq = 800;
+                const maxFreq = 2000;
+                const freqRange = maxFreq - baseFreq;
+                const normalizedChange = Math.min(priceChange / 1000, 1); // Normalize to 0-1, max at $1000 change
+                
+                const startFreq = baseFreq + (freqRange * normalizedChange * 0.3);
+                const midFreq = baseFreq + (freqRange * normalizedChange * 0.6);
+                const endFreq = baseFreq + (freqRange * normalizedChange);
+                
+                const duration = 0.2 + (normalizedChange * 0.4); // 0.2s to 0.6s
+                
+                oscillator.frequency.setValueAtTime(startFreq, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(midFreq, audioContext.currentTime + duration * 0.3);
+                oscillator.frequency.setValueAtTime(endFreq, audioContext.currentTime + duration * 0.6);
                 
                 gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.3);
+                oscillator.stop(audioContext.currentTime + duration);
             } catch (e) {
                 console.log('Sound effect failed to play:', e);
             }
         }
     }
     
-    function playNegativeSound() {
+    function playNegativeSound(priceChange) {
         if (playPriceBings) {
             try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -355,15 +367,27 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
-                oscillator.frequency.setValueAtTime(300, audioContext.currentTime + 0.1);
-                oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.2);
+                // Calculate pitch and duration based on price change size
+                const baseFreq = 400;
+                const minFreq = 150;
+                const freqRange = baseFreq - minFreq;
+                const normalizedChange = Math.min(priceChange / 1000, 1); // Normalize to 0-1, max at $1000 change
+                
+                const startFreq = baseFreq - (freqRange * normalizedChange * 0.3);
+                const midFreq = baseFreq - (freqRange * normalizedChange * 0.6);
+                const endFreq = baseFreq - (freqRange * normalizedChange);
+                
+                const duration = 0.2 + (normalizedChange * 0.4); // 0.2s to 0.6s
+                
+                oscillator.frequency.setValueAtTime(startFreq, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(midFreq, audioContext.currentTime + duration * 0.3);
+                oscillator.frequency.setValueAtTime(endFreq, audioContext.currentTime + duration * 0.6);
                 
                 gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.3);
+                oscillator.stop(audioContext.currentTime + duration);
             } catch (e) {
                 console.log('Sound effect failed to play:', e);
             }
@@ -443,6 +467,34 @@
         console.log('Settings restored to defaults');
         saveSettingsToStorage(); // Save defaults to localStorage
     }
+    
+    function testSoundEffect(priceChange) {
+        // If no parameter provided, try to get from input field (for backward compatibility)
+        if (priceChange === undefined) {
+            const inputElement = document.getElementById('testPriceChange');
+            if (inputElement) {
+                priceChange = parseFloat(inputElement.value);
+            } else {
+                console.log('Usage: testSoundEffect(priceChange) - e.g., testSoundEffect(100) for bing, testSoundEffect(-200) for bong');
+                return;
+            }
+        }
+        
+        if (isNaN(priceChange)) {
+            console.log('Please provide a valid number');
+            return;
+        }
+        
+        if (priceChange > 0) {
+            console.log(`Testing positive sound effect for price change: +$${priceChange}`);
+            playPositiveSound(priceChange);
+        } else if (priceChange < 0) {
+            console.log(`Testing negative sound effect for price change: $${priceChange}`);
+            playNegativeSound(Math.abs(priceChange));
+        } else {
+            console.log('Please provide a non-zero number');
+        }
+    }
 
     // Close modal when clicking outside of it
     window.onclick = function(event) {
@@ -482,7 +534,7 @@
                         setTimeout(() => {
                             priceElement.classList.remove('price-up');
                         }, 2000);
-                        playPositiveSound();
+                        playPositiveSound(currentPrice - prevPrice);
                     } else if (currentPrice < prevPrice) {
                         // Price went down - flash red
                         priceElement.classList.remove('price-up');
@@ -490,7 +542,7 @@
                         setTimeout(() => {
                             priceElement.classList.remove('price-down');
                         }, 2000);
-                        playNegativeSound();
+                        playNegativeSound(prevPrice - currentPrice);
                     }
                 }
                 
