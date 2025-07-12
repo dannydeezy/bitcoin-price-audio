@@ -5,15 +5,318 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitcoin Price Speaker</title>
+    <style>
+        :root {
+            --bg-color: #2a2a2a;
+            --text-color: #f0f0f0;
+            --button-bg: #007bff;
+            --button-hover: #0056b3;
+            --settings-bg: #6c757d;
+            --settings-hover: #545b62;
+            --disable-bg: #dc3545;
+            --disable-hover: #c82333;
+            --modal-bg: #2d2d2d;
+            --modal-content: #3a3a3a;
+            --input-bg: #4a4a4a;
+            --input-border: #666;
+            --small-text: #d0d0d0;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        h1 {
+            color: var(--text-color);
+            font-size: min(20vw, 15vh);
+            margin: 20px 0;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            line-height: 1;
+            word-break: break-all;
+        }
+        
+        .button-container {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        button {
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            min-width: 120px;
+        }
+        
+        button:hover {
+            background-color: var(--button-hover);
+        }
+        
+        #settingsBtn {
+            background-color: var(--settings-bg);
+        }
+        
+        #settingsBtn:hover {
+            background-color: var(--settings-hover);
+        }
+        
+        #disableBtn {
+            background-color: var(--disable-bg);
+        }
+        
+        #disableBtn:hover {
+            background-color: var(--disable-hover);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+        }
+        
+        .modal-content {
+            background-color: var(--modal-content);
+            color: var(--text-color);
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid var(--input-border);
+            width: 300px;
+            border-radius: 10px;
+        }
+        
+        .close {
+            color: var(--small-text);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: var(--text-color);
+        }
+        
+        .form-group {
+            margin: 15px 0;
+            text-align: left;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        
+        .save-btn {
+            background-color: #28a745;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .save-btn:hover {
+            background-color: #218838;
+        }
+        
+        small {
+            color: var(--small-text);
+            font-size: 12px;
+        }
+        
+        #lastSpokenInfo {
+            margin-top: 10px;
+            color: var(--small-text);
+            font-size: 14px;
+            font-style: italic;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: min(25vw, 12vh);
+                margin: 10px 0;
+            }
+            
+            .button-container {
+                margin-top: 15px;
+            }
+            
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+                min-width: 100px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: min(30vw, 10vh);
+            }
+            
+            button {
+                padding: 8px 16px;
+                font-size: 12px;
+                min-width: 80px;
+            }
+        }
+    </style>
 </head>
 <body>
 <h1 id="price"></h1>
-<button id="button" onclick="fetchAndSpeakBitcoinPrice()">Start</button>
+<div class="button-container">
+    <button id="enableBtn" onclick="enableAudio()">Enable Audio</button>
+    <button id="disableBtn" onclick="disableAudio()" style="display: none;">Disable Audio</button>
+    <button id="settingsBtn" onclick="openSettings()">Settings</button>
+</div>
+<div id="lastSpokenInfo" style="display: none;">
+    Last spoken price: $<span id="lastSpokenPrice"></span><br>
+    Price change threshold: $<span id="currentThreshold"></span>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeSettings()">&times;</span>
+        <h2>Settings</h2>
+        <div class="form-group">
+            <label for="priceThreshold">Price Change Threshold ($):</label>
+            <input type="number" id="priceThreshold" min="0" step="1" value="0">
+            <small>Only speak when price changes by this amount or more</small>
+        </div>
+        <div class="form-group">
+            <label for="pauseBetweenSpeakings">Pause Between Speakings (ms):</label>
+            <input type="number" id="pauseBetweenSpeakings" min="0" step="1" value="200">
+            <small>How long to wait between each speech utterance</small>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="useMillions"> Millions Mode
+            </label>
+            <small>Show and say prices in millions (e.g., $0.123 M instead of $123,000)</small>
+        </div>
+        <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+    </div>
+</div>
 
 <script>
 
     let latestPrice = ''
+    let lastSpokenPrice = null
+    let priceChangeThreshold = 0
+    let pauseBetweenSpeakings = 200
+    let isAudioEnabled = false
+    let currentAudioController = null
+    let useMillions = false
     let ws
+    
+    function saveSettingsToStorage() {
+        const settings = {
+            priceChangeThreshold: priceChangeThreshold,
+            pauseBetweenSpeakings: pauseBetweenSpeakings,
+            useMillions: useMillions
+        };
+        localStorage.setItem('bitcoinPriceSettings', JSON.stringify(settings));
+    }
+    
+    function loadSettingsFromStorage() {
+        const savedSettings = localStorage.getItem('bitcoinPriceSettings');
+        if (savedSettings) {
+            try {
+                const settings = JSON.parse(savedSettings);
+                priceChangeThreshold = settings.priceChangeThreshold || 0;
+                pauseBetweenSpeakings = settings.pauseBetweenSpeakings || 200;
+                useMillions = settings.useMillions || false;
+                console.log('Settings loaded from localStorage:', settings);
+            } catch (error) {
+                console.error('Error loading settings from localStorage:', error);
+            }
+        }
+    }
+    
+    function openSettings() {
+        document.getElementById('settingsModal').style.display = 'block';
+        document.getElementById('priceThreshold').value = priceChangeThreshold;
+        document.getElementById('pauseBetweenSpeakings').value = pauseBetweenSpeakings;
+        document.getElementById('useMillions').checked = useMillions;
+    }
+    
+    function closeSettings() {
+        document.getElementById('settingsModal').style.display = 'none';
+    }
+    
+    function saveSettings() {
+        const newThreshold = parseInt(document.getElementById('priceThreshold').value);
+        const newInterval = parseInt(document.getElementById('pauseBetweenSpeakings').value);
+        const newUseMillions = document.getElementById('useMillions').checked;
+        
+        if (newThreshold >= 0 && !isNaN(newInterval)) {
+            priceChangeThreshold = newThreshold;
+            pauseBetweenSpeakings = newInterval;
+            useMillions = newUseMillions;
+            closeSettings();
+            console.log(`Settings updated - Threshold: $${priceChangeThreshold}, Pause: ${pauseBetweenSpeakings}ms, Millions: ${useMillions}`);
+            
+            // Show/hide last spoken info based on threshold
+            const lastSpokenInfo = document.getElementById('lastSpokenInfo');
+            if (priceChangeThreshold > 0) {
+                lastSpokenInfo.style.display = 'block';
+                document.getElementById('currentThreshold').textContent = formatPrice(priceChangeThreshold);
+            } else {
+                lastSpokenInfo.style.display = 'none';
+            }
+            saveSettingsToStorage(); // Save settings to localStorage
+        } else {
+            alert('Please enter valid numbers (threshold >= 0, interval must be a number)');
+        }
+    }
+    
+    // Close modal when clicking outside of it
+    window.onclick = function(event) {
+        const modal = document.getElementById('settingsModal');
+        if (event.target === modal) {
+            closeSettings();
+        }
+    }
+    
     function openSocket() {
         ws = new WebSocket('wss://ws-feed.exchange.coinbase.com');
         console.log(ws)
@@ -31,7 +334,7 @@
             const myPrice = parseFloat(data.price).toFixed(0)
             if (!isNaN(myPrice)) {
                 latestPrice = myPrice
-                document.getElementById("price").textContent = `$${myPrice}`;
+                document.getElementById("price").textContent = `$${formatPrice(myPrice)}`;
             }
         };
 
@@ -48,30 +351,113 @@
     const rateStr = urlParams.get('rate')
     const speakingRate = rateStr ? parseFloat(rateStr) : 1;
     openSocket()
-    async function fetchAndSpeakBitcoinPrice() {
-        document.getElementById('button').style.display = 'none'
-
-        async function sayAndWait(sentence) {
-            console.log(sentence);
+    loadSettingsFromStorage(); // Load settings on page load
+    
+    async function sayAndWait(sentence) {
+        console.log(sentence);
+        return new Promise((resolve) => {
             let audio = new SpeechSynthesisUtterance(sentence);
             audio.lang = "en-US";
             audio.rate = speakingRate
             console.log(audio.rate)
+            
+            audio.onend = () => {
+                console.log(`spoken: ${sentence}`);
+                resolve();
+            };
+            
+            audio.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                resolve();
+            };
+            
             window.speechSynthesis.cancel()
             window.speechSynthesis.speak(audio);
-            console.log(`spoken`)
-            console.log(audio)
-        }
+        });
+    }
 
-        const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-        while(true) {
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+    
+    function formatPrice(price) {
+        if (useMillions) {
+            const millions = (price / 1000000).toFixed(6);
+            return millions.replace(/\.?0+$/, '') + ' M';
+        } else {
+            return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+    }
+    
+    function formatPriceForSpeech(price) {
+        if (useMillions) {
+            const millions = (price / 1000000).toFixed(6);
+            return millions.replace(/\.?0+$/, '') + ' Million';
+        } else {
+            return price.toString();
+        }
+    }
+    
+    async function runAudioLoop(controller) {
+        while(isAudioEnabled) {
             try {
-                await sayAndWait(`${latestPrice}`)
+                // Check if this loop has been cancelled
+                if (controller.signal.aborted) {
+                    console.log('Audio loop cancelled');
+                    return;
+                }
+                
+                const currentPrice = parseFloat(latestPrice)
+                if (!isNaN(currentPrice)) {
+                    // Check if this is the first time speaking or if price has changed by at least the threshold
+                    // If threshold is 0, always speak
+                    if (lastSpokenPrice === null || priceChangeThreshold === 0 || Math.abs(currentPrice - lastSpokenPrice) >= priceChangeThreshold) {
+                        
+                        lastSpokenPrice = currentPrice                        // Update the last spoken price display
+                        if (priceChangeThreshold > 0) {
+                            document.getElementById('lastSpokenPrice').textContent = formatPrice(currentPrice);
+                        }
+                        await sayAndWait(formatPriceForSpeech(currentPrice))
+
+                    }
+                }
             } catch (error) {
                 console.error("Error fetching or speaking the Bitcoin price:", error);
             }
-            await delay(3000 / speakingRate)
+            
+            // Check if cancelled before waiting
+            if (controller.signal.aborted) {
+                console.log('Audio loop cancelled before delay');
+                return;
+            }
+            await delay(pauseBetweenSpeakings)
         }
+        return
+    }
+    
+    function enableAudio() {
+        // Cancel any existing audio loop
+        if (currentAudioController) {
+            currentAudioController.abort();
+        }
+        
+        isAudioEnabled = true;
+        currentAudioController = new AbortController();
+        document.getElementById('enableBtn').style.display = 'none';
+        document.getElementById('disableBtn').style.display = 'inline-block';
+        runAudioLoop(currentAudioController);
+        console.log('Audio enabled');
+    }
+    
+    function disableAudio() {
+        isAudioEnabled = false;
+        lastSpokenPrice = null;
+        if (currentAudioController) {
+            currentAudioController.abort();
+            currentAudioController = null;
+        }
+        document.getElementById('enableBtn').style.display = 'inline-block';
+        document.getElementById('disableBtn').style.display = 'none';
+        window.speechSynthesis.cancel();
+        console.log('Audio disabled');
     }
 
 </script>
